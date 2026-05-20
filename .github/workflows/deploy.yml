@@ -27,9 +27,18 @@ jobs:
       - name: Publish
         run: dotnet publish -c Release -o publish
 
+      - name: Inspect publish output
+        run: |
+          echo "=== publish/ ==="
+          ls -la publish/ || echo "(missing)"
+          echo "=== publish/wwwroot/ ==="
+          ls -la publish/wwwroot/ || echo "(missing)"
+
       - name: Deploy to Cloudflare Pages
-        uses: cloudflare/wrangler-action@v3
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: pages deploy publish/wwwroot --project-name=devicestats --branch=main
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          npx wrangler@latest pages deploy publish/wwwroot \
+            --project-name=devicestats \
+            --branch=main
