@@ -1,0 +1,44 @@
+@inject AuthService Auth
+@implements IDisposable
+
+<nav class="topnav">
+    <a class="brand" href="">DeviceStats</a>
+
+    <div class="links">
+        <NavLink class="nav-link" href="" Match="NavLinkMatch.All">ホーム</NavLink>
+        <NavLink class="nav-link" href="stats">統計</NavLink>
+        <NavLink class="nav-link" href="register">登録</NavLink>
+
+        @if (Auth.IsAuthenticated)
+        {
+            <span class="user-chip" title="@Auth.CurrentEmail">@(Auth.CurrentEmail ?? "ユーザー")</span>
+            <button class="nav-link logout" @onclick="HandleLogout">ログアウト</button>
+        }
+        else
+        {
+            <NavLink class="nav-link" href="login">ログイン</NavLink>
+        }
+    </div>
+</nav>
+
+@code {
+    protected override void OnInitialized()
+    {
+        Auth.StateChanged += OnAuthChanged;
+    }
+
+    private void OnAuthChanged()
+    {
+        InvokeAsync(StateHasChanged);
+    }
+
+    private async Task HandleLogout()
+    {
+        await Auth.SignOutAsync();
+    }
+
+    public void Dispose()
+    {
+        Auth.StateChanged -= OnAuthChanged;
+    }
+}

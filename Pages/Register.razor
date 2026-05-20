@@ -1,0 +1,585 @@
+@page "/register"
+@using System.ComponentModel.DataAnnotations
+@inject SupabaseClientProvider Supabase
+@inject AuthService Auth
+@implements IDisposable
+
+<PageTitle>登録 - DeviceStats</PageTitle>
+
+<div class="page-head">
+    <p class="eyebrow">Register</p>
+    <h1>あなたの<span class="accent-text">デバイス</span>を登録</h1>
+    <p class="lead">マウスと使う人の情報を教えてください。集まったデータが統計になります。</p>
+</div>
+
+@if (!Auth.IsAuthenticated)
+{
+    <div class="glass auth-required">
+        <h2>ログインが必要です</h2>
+        <p>登録機能を使うにはアカウントが必要です。</p>
+        <div class="auth-cta">
+            <a class="btn btn-primary" href="login">ログイン</a>
+            <a class="btn btn-outline-secondary" href="signup">新規登録</a>
+        </div>
+    </div>
+}
+else
+{
+
+<EditForm Model="form" OnValidSubmit="HandleSubmit" class="form-wrap">
+    <DataAnnotationsValidator />
+
+    @* ───── プロフィール ───── *@
+    <section class="glass section">
+        <h2>あなたのこと</h2>
+
+        <div class="field">
+            <label for="nickname">ニックネーム <span class="req">*</span></label>
+            <InputText id="nickname" @bind-Value="form.Nickname" placeholder="例：takaki" class="input" />
+            <ValidationMessage For="@(() => form.Nickname)" class="err" />
+        </div>
+
+        <div class="field-row">
+            <div class="field">
+                <label for="handWidth">手の横幅 (mm)</label>
+                <div class="hint">親指の付け根 〜 小指の付け根</div>
+                <InputNumber id="handWidth" @bind-Value="form.HandWidthMm" placeholder="例：90" class="input" />
+                <ValidationMessage For="@(() => form.HandWidthMm)" class="err" />
+            </div>
+            <div class="field">
+                <label for="handLength">手の縦幅 (mm)</label>
+                <div class="hint">手首 〜 中指の先</div>
+                <InputNumber id="handLength" @bind-Value="form.HandLengthMm" placeholder="例：185" class="input" />
+                <ValidationMessage For="@(() => form.HandLengthMm)" class="err" />
+            </div>
+        </div>
+
+        <div class="field">
+            <label>利き手 <span class="req">*</span></label>
+            <div class="choice-row">
+                @foreach (var (val, ja) in dominantHands)
+                {
+                    <label class="choice @(form.DominantHand == val ? "selected" : "")">
+                        <input type="radio" name="dominant" value="@val"
+                               checked="@(form.DominantHand == val)"
+                               @onchange="@(() => form.DominantHand = val)" />
+                        <span>@ja</span>
+                    </label>
+                }
+            </div>
+        </div>
+    </section>
+
+    @* ───── マウス情報 ───── *@
+    <section class="glass section">
+        <h2>使っているマウス</h2>
+
+        <div class="field">
+            <label for="mouse">マウス <span class="req">*</span></label>
+            @if (loadError != null)
+            {
+                <div class="conn-err">接続エラー：@loadError</div>
+            }
+            else if (!miceLoaded)
+            {
+                <div class="conn-loading">マウス一覧を読み込み中...</div>
+            }
+            else
+            {
+                <InputSelect id="mouse" @bind-Value="form.MouseId" class="input">
+                    <option value="">— 選択してください（@mice.Count 件） —</option>
+                    @foreach (var maker in groupedMice)
+                    {
+                        <optgroup label="@maker.Key">
+                            @foreach (var m in maker)
+                            {
+                                <option value="@m.Id">@m.ModelName</option>
+                            }
+                        </optgroup>
+                    }
+                </InputSelect>
+            }
+            <div class="hint">
+                リストに無いマウスがある？
+                <a href="#" @onclick="ShowAddMouseDialog" @onclick:preventDefault>追加申請する</a>
+            </div>
+            <ValidationMessage For="@(() => form.MouseId)" class="err" />
+        </div>
+
+        <div class="field">
+            <label for="game">メインで遊ぶゲーム</label>
+            <InputText id="game" @bind-Value="form.MainGame" placeholder="例：VALORANT、Apex Legends、原神 など" class="input" />
+        </div>
+
+        <div class="field">
+            <label>持ち方 <span class="req">*</span></label>
+            <div class="grip-grid">
+                @foreach (var (val, ja, desc) in gripStyles)
+                {
+                    <label class="grip-card @(form.GripStyle == val ? "selected" : "")">
+                        <input type="radio" name="grip" value="@val"
+                               checked="@(form.GripStyle == val)"
+                               @onchange="@(() => form.GripStyle = val)" />
+                        <div class="grip-icon">@GripIcon(val)</div>
+                        <div class="grip-name">@ja</div>
+                        <div class="grip-desc">@desc</div>
+                    </label>
+                }
+            </div>
+        </div>
+
+        <div class="field">
+            <label for="image">マウスの画像（任意）</label>
+            <InputFile id="image" OnChange="HandleImageSelected" class="input file" accept="image/*" />
+            @if (!string.IsNullOrEmpty(imagePreview))
+            {
+                <div class="image-preview">
+                    <img src="@imagePreview" alt="プレビュー" />
+                </div>
+            }
+        </div>
+
+        <div class="field">
+            <label for="comment">コメント（任意）</label>
+            <InputTextArea id="comment" @bind-Value="form.Comment" placeholder="使い心地や気に入ってる点など" rows="3" class="input area" />
+            <div class="hint right">@(form.Comment?.Length ?? 0) / 500</div>
+            <ValidationMessage For="@(() => form.Comment)" class="err" />
+        </div>
+    </section>
+
+    <div class="actions">
+        <button type="submit" class="btn btn-primary" disabled="@isSubmitting">
+            @(isSubmitting ? "送信中..." : "この内容で登録する")
+        </button>
+        @if (submitMessage != null)
+        {
+            <div class="submit-msg @submitMessageClass">@submitMessage</div>
+        }
+    </div>
+</EditForm>
+
+}
+
+@code {
+    private MouseRegistrationForm form = new();
+    private bool isSubmitting;
+    private string? submitMessage;
+    private string submitMessageClass = "";
+    private string? imagePreview;
+
+    private List<Mouse> mice = new();
+    private bool miceLoaded;
+    private string? loadError;
+
+    protected override async Task OnInitializedAsync()
+    {
+        Auth.StateChanged += OnAuthChanged;
+        await LoadMiceAndProfile();
+    }
+
+    private async void OnAuthChanged()
+    {
+        await LoadMiceAndProfile();
+        await InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose()
+    {
+        Auth.StateChanged -= OnAuthChanged;
+    }
+
+    private async Task LoadMiceAndProfile()
+    {
+        try
+        {
+            var miceResp = await Supabase.Client
+                .From<Mouse>()
+                .Where(m => m.Approved == true)
+                .Order(m => m.Maker, Postgrest.Constants.Ordering.Ascending)
+                .Order(m => m.ModelName, Postgrest.Constants.Ordering.Ascending)
+                .Get();
+            mice = miceResp.Models;
+            miceLoaded = true;
+
+            if (Auth.IsAuthenticated && Auth.CurrentUserId is Guid uid)
+            {
+                var profResp = await Supabase.Client
+                    .From<Profile>()
+                    .Where(p => p.UserId == uid)
+                    .Get();
+                var profile = profResp.Models.FirstOrDefault();
+                if (profile != null)
+                {
+                    form.Nickname = profile.Nickname;
+                    form.HandWidthMm = profile.HandWidthMm;
+                    form.HandLengthMm = profile.HandLengthMm;
+                    form.DominantHand = profile.DominantHand ?? "right";
+                }
+
+                var mouseResp = await Supabase.Client
+                    .From<MouseRegistration>()
+                    .Where(r => r.UserId == uid)
+                    .Get();
+                var existing = mouseResp.Models.FirstOrDefault();
+                if (existing != null)
+                {
+                    form.MouseId = existing.MouseId;
+                    form.MainGame = existing.MainGame;
+                    form.GripStyle = existing.GripStyle ?? "palm";
+                    form.Comment = existing.Comment;
+                    form.ImageUrl = existing.ImageUrl;
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            loadError = ex.Message;
+        }
+    }
+
+    private IEnumerable<IGrouping<string, Mouse>> groupedMice =>
+        mice.GroupBy(m => m.Maker);
+
+    private readonly (string val, string ja)[] dominantHands = new[]
+    {
+        ("right", "右利き"),
+        ("left",  "左利き"),
+        ("both",  "両利き"),
+    };
+
+    private readonly (string val, string ja, string desc)[] gripStyles = new[]
+    {
+        ("palm",      "かぶせ持ち",  "手のひら全体で包む"),
+        ("claw",      "つかみ持ち",  "甲を浮かせ、指で掴む"),
+        ("fingertip", "つまみ持ち",  "指先でつまんで動かす"),
+    };
+
+    private static MarkupString GripIcon(string style) => style switch
+    {
+        "palm"      => new MarkupString("<svg viewBox='0 0 40 40' fill='none' stroke='currentColor' stroke-width='1.6'><path d='M8 24 Q8 12 20 12 Q32 12 32 24 L32 30 Q32 34 28 34 L12 34 Q8 34 8 30 Z'/></svg>"),
+        "claw"      => new MarkupString("<svg viewBox='0 0 40 40' fill='none' stroke='currentColor' stroke-width='1.6'><path d='M10 26 Q10 16 20 16 Q30 16 30 26 L30 30 L10 30 Z'/><path d='M14 26 L14 20 M20 26 L20 18 M26 26 L26 20'/></svg>"),
+        "fingertip" => new MarkupString("<svg viewBox='0 0 40 40' fill='none' stroke='currentColor' stroke-width='1.6'><path d='M12 28 Q12 22 20 22 Q28 22 28 28 L28 30 L12 30 Z'/><path d='M16 22 L16 14 M20 22 L20 12 M24 22 L24 14'/></svg>"),
+        _           => new MarkupString(""),
+    };
+
+    private void HandleImageSelected(InputFileChangeEventArgs e)
+    {
+        // 画像のアップロード処理はSupabase Storage接続後に実装
+        // 今はファイル名だけ表示
+        imagePreview = null;
+        form.ImageUrl = e.File.Name;
+    }
+
+    private void ShowAddMouseDialog()
+    {
+        submitMessage = "マウス追加申請のダイアログは次の実装で追加します。";
+        submitMessageClass = "info";
+    }
+
+    private async Task HandleSubmit()
+    {
+        if (Auth.CurrentUserId is not Guid uid)
+        {
+            submitMessage = "ログインしてください。";
+            submitMessageClass = "err";
+            return;
+        }
+
+        isSubmitting = true;
+        submitMessage = null;
+        StateHasChanged();
+
+        try
+        {
+            var profile = new Profile
+            {
+                UserId = uid,
+                Nickname = form.Nickname,
+                HandWidthMm = form.HandWidthMm,
+                HandLengthMm = form.HandLengthMm,
+                DominantHand = form.DominantHand
+            };
+            await Supabase.Client.From<Profile>().Upsert(profile);
+
+            var registration = new MouseRegistration
+            {
+                UserId = uid,
+                MouseId = form.MouseId!.Value,
+                MainGame = form.MainGame,
+                GripStyle = form.GripStyle,
+                ImageUrl = form.ImageUrl,
+                Comment = form.Comment
+            };
+            await Supabase.Client.From<MouseRegistration>().Upsert(registration);
+
+            submitMessage = "登録しました。";
+            submitMessageClass = "ok";
+        }
+        catch (Exception ex)
+        {
+            submitMessage = $"保存に失敗しました：{ex.Message}";
+            submitMessageClass = "err";
+        }
+        finally
+        {
+            isSubmitting = false;
+        }
+    }
+}
+
+<style>
+    .page-head {
+        padding: 2rem 0;
+        text-align: center;
+    }
+    .eyebrow {
+        text-transform: uppercase;
+        letter-spacing: 0.2em;
+        font-size: 0.75rem;
+        color: var(--text-muted);
+        margin: 0 0 0.75rem;
+    }
+    .page-head h1 {
+        margin: 0 0 0.5rem;
+        font-weight: 200;
+        font-size: clamp(1.75rem, 4vw, 2.5rem);
+        letter-spacing: 0.04em;
+    }
+    .page-head .lead {
+        color: var(--text-muted);
+        margin: 0;
+        font-weight: 300;
+        letter-spacing: 0.04em;
+    }
+
+    .form-wrap {
+        display: flex;
+        flex-direction: column;
+        gap: 1.25rem;
+    }
+
+    .section {
+        padding: 2rem 2.25rem;
+    }
+    .section h2 {
+        margin: 0 0 1.5rem;
+        font-size: 1.05rem;
+        font-weight: 400;
+        letter-spacing: 0.08em;
+        color: var(--text);
+        padding-bottom: 0.6rem;
+        border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+    }
+
+    .field { margin-bottom: 1.5rem; }
+    .field:last-child { margin-bottom: 0; }
+
+    .field-row {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 1rem;
+    }
+    @@media (max-width: 540px) {
+        .field-row { grid-template-columns: 1fr; }
+    }
+
+    label {
+        display: block;
+        font-size: 0.85rem;
+        font-weight: 400;
+        letter-spacing: 0.05em;
+        color: var(--text);
+        margin-bottom: 0.4rem;
+    }
+    .req { color: #d9485f; font-weight: 400; }
+
+    .hint {
+        font-size: 0.78rem;
+        color: var(--text-muted);
+        margin: -0.1rem 0 0.4rem;
+        font-weight: 300;
+    }
+    .hint.right { text-align: right; margin-top: 0.3rem; }
+    .hint a { color: #4a6bd6; text-decoration: underline; }
+
+    .input {
+        width: 100%;
+        padding: 0.7rem 0.95rem;
+        border: 1px solid rgba(0, 0, 0, 0.1);
+        background: rgba(255, 255, 255, 0.7);
+        border-radius: 12px;
+        font-size: 0.95rem;
+        font-weight: 300;
+        font-family: inherit;
+        color: var(--text);
+        backdrop-filter: blur(8px);
+        -webkit-backdrop-filter: blur(8px);
+        transition: border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
+    }
+    .input:focus {
+        outline: none;
+        border-color: var(--accent-start);
+        background: rgba(255, 255, 255, 0.9);
+        box-shadow: 0 0 0 3px rgba(106, 141, 255, 0.15);
+    }
+    .input.area { resize: vertical; min-height: 90px; line-height: 1.7; }
+    .input.file { padding: 0.55rem 0.95rem; }
+
+    .err {
+        display: block;
+        color: #d9485f;
+        font-size: 0.78rem;
+        margin-top: 0.3rem;
+    }
+
+    .choice-row {
+        display: flex;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+    }
+    .choice {
+        display: flex;
+        align-items: center;
+        padding: 0.5rem 1.1rem;
+        border: 1px solid rgba(0, 0, 0, 0.1);
+        background: rgba(255, 255, 255, 0.6);
+        border-radius: 999px;
+        cursor: pointer;
+        font-size: 0.9rem;
+        font-weight: 300;
+        transition: all 0.2s ease;
+        margin: 0;
+    }
+    .choice input { display: none; }
+    .choice:hover { background: rgba(255, 255, 255, 0.9); }
+    .choice.selected {
+        background: linear-gradient(135deg, var(--accent-start), var(--accent-end));
+        color: #fff;
+        border-color: transparent;
+        box-shadow: 0 4px 12px var(--accent-glow);
+    }
+
+    .grip-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 0.75rem;
+    }
+    @@media (max-width: 540px) {
+        .grip-grid { grid-template-columns: 1fr; }
+    }
+    .grip-card {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 0.4rem;
+        padding: 1.1rem 0.5rem 0.9rem;
+        border: 1px solid rgba(0, 0, 0, 0.1);
+        background: rgba(255, 255, 255, 0.6);
+        border-radius: 14px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        margin: 0;
+    }
+    .grip-card input { display: none; }
+    .grip-card:hover { background: rgba(255, 255, 255, 0.9); transform: translateY(-1px); }
+    .grip-card.selected {
+        border-color: var(--accent-start);
+        background: rgba(255, 255, 255, 0.95);
+        box-shadow: 0 4px 16px var(--accent-glow);
+    }
+    .grip-icon {
+        width: 44px;
+        height: 44px;
+        color: var(--text);
+    }
+    .grip-icon svg { width: 100%; height: 100%; }
+    .grip-card.selected .grip-icon { color: var(--accent-start); }
+    .grip-name { font-size: 0.92rem; font-weight: 400; letter-spacing: 0.05em; }
+    .grip-desc { font-size: 0.75rem; color: var(--text-muted); font-weight: 300; }
+
+    .image-preview {
+        margin-top: 0.5rem;
+        max-width: 200px;
+        border-radius: 10px;
+        overflow: hidden;
+    }
+    .image-preview img { width: 100%; display: block; }
+
+    .actions {
+        padding-top: 0.5rem;
+        text-align: center;
+    }
+    .actions .btn {
+        padding: 0.8rem 2.4rem;
+        font-size: 0.95rem;
+    }
+    .actions .btn:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+    }
+
+    .submit-msg {
+        margin-top: 1rem;
+        padding: 0.85rem 1.1rem;
+        border-radius: 12px;
+        font-size: 0.88rem;
+        font-weight: 300;
+    }
+    .submit-msg.ok {
+        background: rgba(106, 141, 255, 0.08);
+        border: 1px solid rgba(106, 141, 255, 0.2);
+        color: #2e4cb8;
+    }
+    .submit-msg.err {
+        background: rgba(217, 72, 95, 0.06);
+        border: 1px solid rgba(217, 72, 95, 0.2);
+        color: #b3344a;
+    }
+    .submit-msg.info {
+        background: rgba(255, 255, 255, 0.7);
+        border: 1px solid rgba(0, 0, 0, 0.08);
+        color: var(--text-muted);
+    }
+
+    .conn-loading {
+        padding: 0.7rem 0.95rem;
+        color: var(--text-muted);
+        font-size: 0.9rem;
+        font-style: italic;
+        background: rgba(255, 255, 255, 0.5);
+        border-radius: 12px;
+    }
+    .conn-err {
+        padding: 0.7rem 0.95rem;
+        color: #d9485f;
+        font-size: 0.85rem;
+        background: rgba(217, 72, 95, 0.06);
+        border: 1px solid rgba(217, 72, 95, 0.2);
+        border-radius: 12px;
+        word-break: break-word;
+    }
+
+    .auth-required {
+        padding: 2.5rem 2rem;
+        text-align: center;
+        max-width: 460px;
+        margin: 1rem auto 0;
+    }
+    .auth-required h2 {
+        margin: 0 0 0.6rem;
+        font-size: 1.1rem;
+        font-weight: 400;
+        letter-spacing: 0.06em;
+    }
+    .auth-required p {
+        color: var(--text-muted);
+        font-weight: 300;
+        margin: 0 0 1.5rem;
+    }
+    .auth-cta {
+        display: flex;
+        gap: 0.75rem;
+        justify-content: center;
+        flex-wrap: wrap;
+    }
+</style>

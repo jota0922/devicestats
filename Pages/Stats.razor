@@ -1,0 +1,65 @@
+@page "/stats"
+
+<PageTitle>統計 - DeviceStats</PageTitle>
+
+<div class="page-head">
+    <p class="eyebrow">Statistics</p>
+    <h1>みんなの<span class="accent-text">傾向</span>を見る</h1>
+    <p class="lead">登録されたデバイス情報の集計をここに表示します。</p>
+</div>
+
+<div class="grid">
+    <div class="card glass">
+        <h3>人気マウスランキング</h3>
+        <p class="muted">（データ取得後に表示）</p>
+    </div>
+    <div class="card glass">
+        <h3>手の大きさ別の傾向</h3>
+        <p class="muted">（データ取得後に表示）</p>
+    </div>
+    <div class="card glass">
+        <h3>持ち方別の傾向</h3>
+        <p class="muted">（データ取得後に表示）</p>
+    </div>
+</div>
+
+<style>
+    .page-head {
+        padding: 2rem 0 2rem;
+        text-align: center;
+    }
+    .eyebrow {
+        text-transform: uppercase;
+        letter-spacing: 0.2em;
+        font-size: 0.75rem;
+        color: var(--text-muted);
+        margin: 0 0 0.75rem;
+    }
+    .page-head h1 {
+        margin: 0 0 0.5rem;
+        font-weight: 200;
+        font-size: clamp(1.75rem, 4vw, 2.5rem);
+        letter-spacing: 0.04em;
+    }
+    .page-head .lead {
+        color: var(--text-muted);
+        margin: 0;
+        font-weight: 300;
+        letter-spacing: 0.04em;
+    }
+
+    .grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+        gap: 1.25rem;
+    }
+    .card { padding: 1.5rem 1.75rem; }
+    .card h3 {
+        margin: 0 0 0.5rem;
+        font-size: 1rem;
+        font-weight: 400;
+        color: var(--text);
+        letter-spacing: 0.05em;
+    }
+    .muted { color: var(--text-muted); margin: 0; font-weight: 300; }
+</style>

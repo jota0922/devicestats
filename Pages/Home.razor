@@ -1,0 +1,89 @@
+@page "/"
+
+<PageTitle>DeviceStats - ホーム</PageTitle>
+
+<div class="hero">
+    <p class="eyebrow">Build with your devices</p>
+    <h1>
+        あなたの<span class="accent-text">デバイス</span>を、<br />
+        みんなの傾向と<span class="accent-text">並べて</span>みよう。
+    </h1>
+    <p class="lead">マウス・キーボード・手のサイズ。集めたデータが「自分に合う一台」を映し出す。</p>
+
+    <div class="cta">
+        <a class="btn btn-primary" href="register">デバイスを登録する</a>
+        <a class="btn btn-outline-secondary" href="stats">統計を見る</a>
+    </div>
+</div>
+
+<section class="intro glass">
+    <h2>このサイトについて</h2>
+    <p>
+        マウス選びは「手のサイズ」「使い方」「環境」によって正解が変わります。
+        DeviceStats は、ユーザーが自分の使用しているデバイスと身体情報を登録し、
+        集まったデータを統計として可視化することで、自分に合ったデバイス選びの参考にできるサイトです。
+    </p>
+
+    <h2>できること</h2>
+    <ul>
+        <li><strong>デバイス登録</strong>: あなたが使っているマウス・キーボードなどを登録</li>
+        <li><strong>統計の閲覧</strong>: 手の大きさ別の人気マウスや、用途別の傾向を確認</li>
+        <li><strong>編集・削除</strong>: 自分の登録はいつでも変更可能</li>
+    </ul>
+</section>
+
+<style>
+    .hero {
+        padding: 4rem 1rem 3rem;
+        text-align: center;
+    }
+    .eyebrow {
+        text-transform: uppercase;
+        letter-spacing: 0.2em;
+        font-size: 0.75rem;
+        color: var(--text-muted);
+        margin: 0 0 1rem;
+    }
+    .hero h1 {
+        font-size: clamp(2rem, 5vw, 3.5rem);
+        font-weight: 200;
+        line-height: 1.45;
+        margin: 0 0 1.25rem;
+        letter-spacing: 0.04em;
+    }
+    .hero .lead {
+        color: var(--text-muted);
+        font-size: 1.02rem;
+        font-weight: 300;
+        margin: 0 auto 2.25rem;
+        max-width: 540px;
+        letter-spacing: 0.04em;
+    }
+
+    .cta {
+        display: flex;
+        gap: 0.75rem;
+        justify-content: center;
+        flex-wrap: wrap;
+    }
+
+    .intro {
+        padding: 2.25rem 2rem;
+        max-width: 760px;
+        margin: 2rem auto 0;
+    }
+    .intro h2 {
+        margin-top: 1.75rem;
+        font-size: 1.1rem;
+        font-weight: 400;
+        color: var(--text);
+        letter-spacing: 0.06em;
+    }
+    .intro h2:first-child { margin-top: 0; }
+    .intro p, .intro li {
+        color: var(--text-muted);
+        line-height: 1.95;
+        font-weight: 300;
+    }
+    .intro strong { color: var(--text); font-weight: 400; }
+</style>
